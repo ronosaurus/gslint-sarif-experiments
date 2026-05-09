@@ -1,5 +1,8 @@
 package demo
 
+// This class demonstrates common Gosu lint violations
+// for testing GitHub code scanning SARIF integration.
+// It intentionally contains bad patterns mixed with good ones.
 class HelloWorld {
 
   // Good: private field
