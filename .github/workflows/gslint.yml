@@ -1,0 +1,57 @@
+name: gslint
+
+on:
+  pull_request:
+
+env:
+  GSLINT_VERSION: '0.39.0'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download gslint JAR
+        run: |
+          gh release download v${{ env.GSLINT_VERSION }} \
+            --repo ronosaurus/gslint-releases \
+            --pattern 'gslint-${{ env.GSLINT_VERSION }}-gosu-1.18.7.jar'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run gslint
+        run: |
+          java -jar gslint-${{ env.GSLINT_VERSION }}-gosu-1.18.7.jar lint \
+            --src-root . \
+            --include HelloWorld.gs \
+            --rules print-statement,empty-catch,public-field \
+            --format json \
+            > gslint.json
+        continue-on-error: true
+
+      - name: Post PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TOTAL=$(jq '[.files[].violations | to_entries[].value[]] | length' gslint.json)
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "No violations found, skipping comment."
+            exit 0
+          fi
+
+          SUMMARY=$(jq -r '
+            .files[] |
+            "**\(.file)**\n" +
+            (.violations | to_entries[] |
+              .value[] | "- Line \(.line): \(.message)"
+            )
+          ' gslint.json)
+
+          gh api \
+            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            --method POST \
+            -f body="## gslint results\n\n$SUMMARY"
