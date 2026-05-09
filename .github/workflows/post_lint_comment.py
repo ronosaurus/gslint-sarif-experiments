@@ -37,27 +37,43 @@ def get_diff_lines(repo, number):
     return diff_lines
 
 
-def make_url(repo, number, sha, filename, line, diff_lines):
-    if line in diff_lines.get(filename, set()):
-        file_hash = hashlib.sha256(filename.encode()).hexdigest()
-        print(f"  Line {line}: in diff -> PR link")
-        return f"https://github.com/{repo}/pull/{number}/files#diff-{file_hash}R{line}"
-    print(f"  Line {line}: not in diff -> blob link")
-    return f"https://github.com/{repo}/blob/{sha}/{filename}#L{line}"
+def post_review(repo, number, sha, inline_comments):
+    """Post all in-diff violations as a single batched PR review."""
+    payload = json.dumps({
+        "commit_id": sha,
+        "event": "COMMENT",
+        "comments": [
+            {"path": c["filename"], "line": c["line"], "body": c["message"]}
+            for c in inline_comments
+        ]
+    })
+    result = subprocess.run(
+        ['gh', 'api', f'repos/{repo}/pulls/{number}/reviews',
+         '--method', 'POST', '--input', '-'],
+        input=payload, text=True, stdout=subprocess.DEVNULL
+    )
+    result.check_returncode()
 
 
-def build_body(lint_data, repo, number, sha, diff_lines):
+def build_body(all_violations, repo, number, sha, diff_lines):
+    """Build the summary comment body covering all violations.
+
+    In-diff lines link into the PR diff; out-of-diff lines link to the blob.
+    """
     sections = ["## gslint results\n"]
+    by_file = {}
+    for v in all_violations:
+        by_file.setdefault(v["filename"], []).append(v)
 
-    for file_data in lint_data['files']:
-        filename = file_data['file']
+    for filename, violations in by_file.items():
         section = [f"**{filename}**"]
-
-        for violations in file_data['violations'].values():
-            for v in violations:
-                url = make_url(repo, number, sha, filename, v['line'], diff_lines)
-                section.append(f"- [Line {v['line']}]({url}): {v['message']}")
-
+        for v in violations:
+            if v["line"] in diff_lines.get(filename, set()):
+                file_hash = hashlib.sha256(filename.encode()).hexdigest()
+                url = f"https://github.com/{repo}/pull/{number}/files#diff-{file_hash}R{v['line']}"
+            else:
+                url = f"https://github.com/{repo}/blob/{sha}/{filename}#L{v['line']}"
+            section.append(f"- [Line {v['line']}]({url}): {v['message']}")
         sections.append("\n".join(section))
 
     return "\n\n".join(sections)
@@ -89,9 +105,29 @@ def main():
         return
 
     diff_lines = get_diff_lines(repo, number)
-    body = build_body(lint_data, repo, number, sha, diff_lines)
+
+    inline_comments = []
+    out_of_diff = []
+
+    for file_data in lint_data['files']:
+        filename = file_data['file']
+        for violations in file_data['violations'].values():
+            for v in violations:
+                entry = {"filename": filename, "line": v['line'], "message": v['message']}
+                if v['line'] in diff_lines.get(filename, set()):
+                    print(f"  Line {v['line']} ({filename}): in diff -> inline comment")
+                    inline_comments.append(entry)
+                else:
+                    print(f"  Line {v['line']} ({filename}): not in diff -> summary only")
+                    out_of_diff.append(entry)
+
+    if inline_comments:
+        post_review(repo, number, sha, inline_comments)
+        print(f"Posted {len(inline_comments)} inline comment(s).")
+
+    body = build_body(inline_comments + out_of_diff, repo, number, sha, diff_lines)
     post_comment(repo, number, body)
-    print(f"Posted comment with {total} violation(s).")
+    print(f"Posted summary with {total} violation(s).")
 
 
 if __name__ == '__main__':
