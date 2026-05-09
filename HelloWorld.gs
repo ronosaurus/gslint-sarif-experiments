@@ -38,6 +38,7 @@ class HelloWorld {
   // Bad: empty-catch
   function tryLoad(raw : String) : int {
     try {
+      // 25cb0791-2b6d-4be9-aff8-a3691a5f6a67
       return Integer.parseInt(raw)
     } catch (e : NumberFormatException) {
     }
@@ -50,4 +51,4 @@ class HelloWorld {
   }
 }
 
-// b2f4ebf9-7111-4cd2-876a-6a2cf3e127b8
+// 3829b9e6-cefe-4e00-a8d9-97ab2622227e
