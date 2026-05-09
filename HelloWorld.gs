@@ -38,9 +38,8 @@ class HelloWorld {
   // Bad: empty-catch
   function tryLoad(raw : String) : int {
     try {
-      // a6fca34a-06bd-45f2-b88a-d3cef923e901
       return Integer.parseInt(raw)
-    } catch (e : NumberFormatException) {
+    } catch (e : NumberFormatException) { // a6fca34a-06bd-45f2-b88a-d3cef923e901
     }
     return -1
   }
