@@ -37,28 +37,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TOTAL=$(jq '[.files[].violations | to_entries[].value[]] | length' gslint.json)
-          if [ "$TOTAL" -eq 0 ]; then
-            echo "No violations found, skipping comment."
-            exit 0
-          fi
-
-          REPO="${{ github.repository }}"
-          SHA="${{ github.event.pull_request.head.sha }}"
-          NUMBER="${{ github.event.pull_request.number }}"
-
-          jq -n --arg repo "$REPO" --arg sha "$SHA" \
-            --slurpfile data gslint.json \
-            '{body: (
-              "## gslint results\n\n" +
-              ([$data[0].files[] |
-                .file as $file |
-                "**\($file)**\n" +
-                ([.violations | to_entries[] | .value[] |
-                  "- [Line \(.line)](https://github.com/\($repo)/blob/\($sha)/\($file)#L\(.line)): \(.message)"
-                ] | join("\n"))
-              ] | join("\n\n"))
-            )}' | \
-          gh api "repos/$REPO/issues/$NUMBER/comments" \
-            --method POST \
-            --input -
+          python .github/workflows/post_lint_comment.py \
+            "${{ github.repository }}" \
+            "${{ github.event.pull_request.head.sha }}" \
+            "${{ github.event.pull_request.number }}"
