@@ -39,7 +39,7 @@ class HelloWorld {
   function tryLoad(raw : String) : int {
     try {
       return Integer.parseInt(raw)
-    } catch (e : NumberFormatException) { // a6fca34a-06bd-45f2-b88a-d3cef923e901
+    } catch (e : NumberFormatException) { // 4237b718-2126-4a64-ba8d-d831b910ebd0
     }
     return -1
   }
