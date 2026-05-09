@@ -66,7 +66,7 @@ def post_comment(repo, number, body):
     result = subprocess.run(
         ['gh', 'api', f'repos/{repo}/issues/{number}/comments',
          '--method', 'POST', '--input', '-'],
-        input=payload, text=True
+        input=payload, text=True, stdout=subprocess.DEVNULL
     )
     result.check_returncode()
 
