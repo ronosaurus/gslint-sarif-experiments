@@ -40,7 +40,9 @@ def get_diff_lines(repo, number):
 def make_url(repo, number, sha, filename, line, diff_lines):
     if line in diff_lines.get(filename, set()):
         file_hash = hashlib.sha256(filename.encode()).hexdigest()
+        print(f"  Line {line}: in diff -> PR link")
         return f"https://github.com/{repo}/pull/{number}/files#diff-{file_hash}R{line}"
+    print(f"  Line {line}: not in diff -> blob link")
     return f"https://github.com/{repo}/blob/{sha}/{filename}#L{line}"
 
 
