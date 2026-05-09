@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  gslint:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
