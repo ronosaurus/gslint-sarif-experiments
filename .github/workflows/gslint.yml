@@ -1,10 +1,10 @@
-name: gslint
-
-on:
-  pull_request:
+name: Gosu Lint
 
 env:
   GSLINT_VERSION: '0.39.0'
+
+on:
+  pull_request:
 
 jobs:
   lint:
@@ -43,15 +43,22 @@ jobs:
             exit 0
           fi
 
-          SUMMARY=$(jq -r '
-            .files[] |
-            "**\(.file)**\n" +
-            (.violations | to_entries[] |
-              .value[] | "- Line \(.line): \(.message)"
-            )
-          ' gslint.json)
+          REPO="${{ github.repository }}"
+          SHA="${{ github.event.pull_request.head.sha }}"
+          NUMBER="${{ github.event.pull_request.number }}"
 
-          gh api \
-            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+          jq -n --arg repo "$REPO" --arg sha "$SHA" \
+            --slurpfile data gslint.json \
+            '{body: (
+              "## gslint results\n\n" +
+              ([$data[0].files[] |
+                .file as $file |
+                "**\($file)**\n" +
+                ([.violations | to_entries[] | .value[] |
+                  "- [Line \(.line)](https://github.com/\($repo)/blob/\($sha)/\($file)#L\(.line)): \(.message)"
+                ] | join("\n"))
+              ] | join("\n\n"))
+            )}' | \
+          gh api "repos/$REPO/issues/$NUMBER/comments" \
             --method POST \
-            -f body="## gslint results\n\n$SUMMARY"
+            --input -
